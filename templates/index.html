@@ -1038,7 +1038,65 @@ function showPage(pageId) {
   if (pageId === 'devices') renderDevicesPage();
 }
 
-// Fetch Devices
+// Device stream (SSE)
+let deviceEventSource = null;
+
+// Connect to device stream
+function connectDeviceStream() {
+  if (deviceEventSource) {
+    deviceEventSource.close();
+  }
+  
+  deviceEventSource = new EventSource(API_BASE + '/devices/stream');
+  
+  deviceEventSource.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      updateDeviceFromStream(data);
+    } catch (e) {
+      console.error('Failed to parse device data:', e);
+    }
+  };
+  
+  deviceEventSource.onerror = () => {
+    console.log('Device stream disconnected, reconnecting...');
+    setTimeout(connectDeviceStream, 3000);
+  };
+}
+
+// Update device from stream data
+function updateDeviceFromStream(data) {
+  const deviceSerial = data.device_ip + ':5555';
+  
+  // Find existing device or create new
+  let existingDevice = devices.find(d => d.serial === deviceSerial);
+  
+  if (existingDevice) {
+    existingDevice.connected = data.connected;
+    existingDevice.model = data.device_model;
+    existingDevice.name = data.device_name;
+    existingDevice.abi = data.device_abi;
+  } else if (data.connected) {
+    devices = [{
+      serial: deviceSerial,
+      model: data.device_model || 'Unknown Device',
+      name: data.device_name || 'Unknown',
+      abi: data.device_abi,
+      connected: true
+    }];
+  } else {
+    devices = [];
+  }
+  
+  renderDeviceList();
+  
+  // Auto-select first connected device
+  if (devices.length > 0 && devices[0].connected && !selectedDevice) {
+    selectDevice(devices[0].serial);
+  }
+}
+
+// Fetch Devices (REST fallback)
 async function fetchDevices() {
   try {
     const res = await fetch(API_BASE + '/devices');
@@ -1047,19 +1105,6 @@ async function fetchDevices() {
     renderDeviceList();
   } catch (e) {
     console.error('Failed to fetch devices:', e);
-    showToast('获取设备列表失败', 'error');
-  }
-}
-
-// Fetch Single Device Status
-async function fetchDeviceStatus() {
-  try {
-    const res = await fetch(API_BASE + '/device/status');
-    const data = await res.json();
-    return data;
-  } catch (e) {
-    console.error('Failed to fetch device status:', e);
-    return null;
   }
 }
 
@@ -1070,7 +1115,7 @@ function renderDeviceList() {
     container.innerHTML = `
       <div class="empty-state">
         <span class="material-symbols-outlined">devices</span>
-        <p>暂未发现已连接的设备</p>
+        <p>正在检测设备...</p>
       </div>
     `;
     return;
@@ -1375,9 +1420,8 @@ function renderHistory() {
 
 // Init
 async function init() {
-  await fetchDevices();
-  // Refresh device status every 10 seconds
-  setInterval(fetchDevices, 10000);
+  // Start SSE connection for real-time device updates
+  connectDeviceStream();
 }
 
 init();

@@ -495,6 +495,25 @@ async def device_status():
     }
 
 
+@app.get("/devices/stream")
+async def devices_stream():
+    async def event_stream():
+        while True:
+            connected, abi = ensure_device_connected()
+            device_info = {
+                "device_ip": DEVICE_IP,
+                "connected": connected,
+                "device_abi": abi,
+                "device_model": _device_cache.get("device_model"),
+                "device_name": _device_cache.get("device_name"),
+                "service": "apk-installer",
+            }
+            yield f"data: {device_info}\n\n"
+            await asyncio.sleep(3)
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
 @app.get("/devices")
 async def list_devices():
     devices = get_all_devices()
