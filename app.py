@@ -508,7 +508,9 @@ async def devices_stream():
                 "device_name": _device_cache.get("device_name"),
                 "service": "apk-installer",
             }
-            yield f"data: {device_info}\n\n"
+            import json
+
+            yield f"data: {json.dumps(device_info)}\n\n"
             await asyncio.sleep(3)
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
