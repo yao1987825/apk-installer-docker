@@ -469,7 +469,10 @@ def run_install(apk_path, install_id):
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    with open("/app/templates/index.html", "r", encoding="utf-8") as f:
+    template_path = os.path.join(os.path.dirname(__file__), "templates", "index.html")
+    if not os.path.exists(template_path):
+        template_path = "/app/templates/index.html"
+    with open(template_path, "r", encoding="utf-8") as f:
         return f.read()
 
 
