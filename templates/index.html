@@ -1,13 +1,1386 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>APK 安装器</title>
-  <script type="module" crossorigin src="/assets/index-BslSAq6G.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-BEAXMfza.css">
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>APK 安装器 - 设备管理</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --primary: #006d38;
+  --primary-container: #28c76f;
+  --secondary: #745b00;
+  --secondary-container: #fecb00;
+  --tertiary: #b12a30;
+  --tertiary-container: #ff8e8a;
+  --surface: #f8f9fa;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #f3f4f5;
+  --surface-container-high: #e7e8e9;
+  --on-surface: #191c1d;
+  --on-surface-variant: #3d4a3e;
+  --outline-variant: #bbcabb;
+  --error: #ba1a1a;
+}
+.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+body {
+  font-family: 'Inter', 'Noto Sans SC', sans-serif;
+  background: var(--surface);
+  color: var(--on-surface);
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+.page { display: none; flex-direction: column; min-height: 100dvh; }
+.page.active { display: flex; }
+
+/* Header */
+.header {
+  background: rgba(255,255,255,0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  box-shadow: 0 1px 3px rgba(0,109,56,0.05);
+}
+.header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+}
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.header-title .material-symbols-outlined { color: var(--primary); font-size: 1.5rem; }
+.header-title h1 {
+  font-family: 'Manrope', sans-serif;
+  font-weight: 700;
+  font-size: 1.125rem;
+  color: var(--primary);
+  letter-spacing: -0.01em;
+}
+.header-actions { display: flex; gap: 1rem; }
+.header-actions .material-symbols-outlined {
+  color: #94a3b8;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.header-actions .material-symbols-outlined:hover { opacity: 0.7; }
+.header-divider { height: 1px; background: #e2e8f0; }
+
+/* Main Content */
+.main {
+  flex: 1;
+  padding: 1.5rem;
+  padding-bottom: 8rem;
+  max-width: 42rem;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Section */
+.section { margin-bottom: 2rem; }
+.section-title {
+  font-family: 'Manrope', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--on-surface-variant);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+  padding: 0 0.25rem;
+}
+
+/* Device Card */
+.device-card {
+  background: var(--surface-container-lowest);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.device-card:hover { background: var(--surface-container-low); }
+.device-card.selected { 
+  box-shadow: 0 0 0 2px var(--primary);
+}
+.device-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+}
+.device-card.connected::before { background: var(--primary); }
+.device-card.disconnected::before { background: var(--outline-variant); }
+.device-card.error::before { background: var(--tertiary); }
+
+.device-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.device-icon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.device-card.connected .device-icon { background: rgba(40,199,111,0.15); }
+.device-card.disconnected .device-icon { background: var(--surface-container-high); }
+.device-card.error .device-icon { background: rgba(177,42,48,0.1); }
+.device-icon .material-symbols-outlined { font-size: 1.5rem; }
+.device-card.connected .device-icon .material-symbols-outlined { color: var(--primary); }
+.device-card.disconnected .device-icon .material-symbols-outlined { color: var(--on-surface-variant); }
+.device-card.error .device-icon .material-symbols-outlined { color: var(--tertiary); }
+
+.device-details h3 {
+  font-family: 'Manrope', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--on-surface);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.device-tag {
+  font-size: 0.625rem;
+  font-weight: 700;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.device-card.connected .device-tag { background: rgba(0,109,56,0.1); color: var(--primary); }
+.device-card.disconnected .device-tag { background: var(--surface-container-high); color: var(--on-surface-variant); }
+.device-details p { font-size: 0.875rem; color: var(--on-surface-variant); margin-top: 0.125rem; }
+.device-chevron .material-symbols-outlined { color: var(--on-surface-variant); }
+
+/* Upload Zone */
+.upload-zone {
+  border: 2px dashed var(--outline-variant);
+  border-radius: 1rem;
+  padding: 3rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  transition: all 0.3s;
+  cursor: pointer;
+  background: var(--surface-container-low);
+}
+.upload-zone:hover {
+  border-color: var(--primary);
+  background: rgba(0,109,56,0.03);
+}
+.upload-zone.dragover {
+  border-color: var(--primary);
+  background: rgba(0,109,56,0.08);
+}
+.upload-icon {
+  width: 5rem;
+  height: 5rem;
+  border-radius: 1rem;
+  background: var(--surface-container-lowest);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  transition: transform 0.3s;
+  position: relative;
+}
+.upload-zone:hover .upload-icon { transform: scale(1.05); }
+.upload-icon .material-symbols-outlined { font-size: 2.5rem; color: var(--primary); }
+
+.upload-plus {
+  position: absolute;
+  bottom: -0.5rem;
+  right: -0.5rem;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,109,56,0.3);
+}
+.upload-plus .material-symbols-outlined { font-size: 1rem; color: white; }
+
+.upload-zone h4 { font-family: 'Manrope', sans-serif; font-weight: 700; font-size: 1.125rem; margin-bottom: 0.5rem; }
+.upload-zone p { font-size: 0.875rem; color: var(--on-surface-variant); max-width: 15rem; line-height: 1.5; }
+
+.upload-btn {
+  margin-top: 2rem;
+  background: linear-gradient(135deg, var(--primary), var(--primary-container));
+  color: white;
+  font-weight: 700;
+  font-size: 0.875rem;
+  padding: 0.875rem 2rem;
+  border-radius: 0.75rem;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,109,56,0.25);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.upload-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+.upload-btn:active { transform: scale(0.98); }
+
+/* Progress Page */
+.progress-card {
+  background: var(--surface-container-lowest);
+  border-radius: 0.75rem;
+  padding: 2rem;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.progress-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+}
+.progress-card.uploading::before { background: var(--secondary); }
+.progress-card.success::before { background: var(--primary); }
+.progress-card.error::before { background: var(--tertiary); }
+
+.progress-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 2rem;
+}
+.progress-icon {
+  width: 5rem;
+  height: 5rem;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+.progress-card.uploading .progress-icon { background: rgba(254,203,0,0.15); }
+.progress-card.success .progress-icon { background: rgba(40,199,111,0.15); }
+.progress-card.error .progress-icon { background: rgba(177,42,48,0.1); }
+.progress-icon .material-symbols-outlined { font-size: 2.5rem; }
+.progress-card.uploading .progress-icon .material-symbols-outlined { color: var(--secondary); }
+.progress-card.success .progress-icon .material-symbols-outlined { color: var(--primary); }
+.progress-card.error .progress-icon .material-symbols-outlined { color: var(--tertiary); }
+
+.progress-header h2 {
+  font-family: 'Manrope', sans-serif;
+  font-weight: 700;
+  font-size: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+.progress-header p { font-size: 0.875rem; color: var(--on-surface-variant); }
+
+.progress-bar-container { margin-bottom: 1rem; }
+.progress-bar-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+.progress-bar-labels span { font-size: 0.75rem; font-weight: 600; }
+.progress-percent { color: var(--secondary); }
+.progress-time { color: var(--on-surface-variant); }
+.progress-bar {
+  height: 0.75rem;
+  background: var(--surface-container-high);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--secondary);
+  border-radius: 9999px;
+  transition: width 0.3s ease;
+  width: 0%;
+}
+.progress-card.success .progress-fill { background: var(--primary); }
+
+.cancel-btn {
+  width: 100%;
+  padding: 1rem;
+  background: var(--surface-container-high);
+  color: var(--on-surface);
+  font-weight: 600;
+  font-size: 0.875rem;
+  border: none;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+}
+.cancel-btn:hover { background: var(--surface-container-highest); }
+.cancel-btn:active { transform: scale(0.98); }
+
+/* Bento Grid */
+.bento-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+.bento-item {
+  background: var(--surface-container-low);
+  padding: 1rem;
+  border-radius: 0.75rem;
+  border-left: 3px solid;
+}
+.bento-item.speed { border-color: var(--secondary); }
+.bento-item.size { border-color: var(--primary); }
+.bento-item label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: var(--on-surface-variant);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.bento-item p {
+  font-family: 'Manrope', sans-serif;
+  font-weight: 700;
+  font-size: 1.125rem;
+  margin-top: 0.25rem;
+}
+
+/* Success Page */
+.success-circle {
+  position: relative;
+  width: 8rem;
+  height: 8rem;
+  margin: 0 auto 1.5rem;
+}
+.success-circle svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+.success-circle .bg { fill: none; stroke: var(--surface-container-high); stroke-width: 8; }
+.success-circle .progress {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 8;
+  stroke-dasharray: 502;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 1s ease;
+}
+.success-icon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.success-icon-inner {
+  width: 5rem;
+  height: 5rem;
+  border-radius: 1.25rem;
+  background: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(0,109,56,0.25);
+}
+.success-icon .material-symbols-outlined { font-size: 2.5rem; color: white; }
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+.status-badge .dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--primary);
+}
+.status-badge .dot.pulse { animation: pulse 1.5s infinite; }
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.5); }
+}
+.status-badge span {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.info-card {
+  background: var(--surface-container-low);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  margin: 2rem 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+.info-item label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.info-item p {
+  font-family: 'Manrope', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  margin-top: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.info-item p .material-symbols-outlined { font-size: 0.875rem; color: var(--primary); }
+
+.action-btn {
+  width: 100%;
+  padding: 1rem;
+  background: linear-gradient(135deg, var(--primary), var(--primary-container));
+  color: white;
+  font-weight: 700;
+  font-size: 1rem;
+  border: none;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  box-shadow: 0 4px 16px rgba(0,109,56,0.25);
+  transition: all 0.2s;
+}
+.action-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+.action-btn:active { transform: scale(0.98); }
+
+.secondary-btn {
+  width: 100%;
+  padding: 0.75rem;
+  background: transparent;
+  color: var(--on-surface-variant);
+  font-weight: 600;
+  font-size: 0.875rem;
+  border: none;
+  cursor: pointer;
+  transition: color 0.2s;
+  margin-top: 0.75rem;
+}
+.secondary-btn:hover { color: var(--primary); }
+
+/* Error Page */
+.error-card {
+  background: var(--surface-container-lowest);
+  border-radius: 0.75rem;
+  padding: 2rem;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.error-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--tertiary);
+}
+
+.error-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.error-icon {
+  width: 8rem;
+  height: 8rem;
+  border-radius: 1rem;
+  background: var(--surface-container-lowest);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+  position: relative;
+}
+.error-icon::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(177,42,48,0.1);
+  border-radius: 1rem;
+  filter: blur(40px);
+}
+.error-icon .material-symbols-outlined { font-size: 4rem; color: var(--tertiary); position: relative; z-index: 1; }
+
+.error-header h2 {
+  font-family: 'Manrope', sans-serif;
+  font-weight: 700;
+  font-size: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+.error-header p { font-size: 0.875rem; color: var(--on-surface-variant); line-height: 1.6; }
+
+.error-details {
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(20px);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  margin: 1.5rem 0;
+  border: 1px solid rgba(187,202,187,0.3);
+}
+.error-detail-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+.error-detail-item:not(:last-child) { margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--surface-container-high); }
+.error-detail-icon {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.error-detail-icon.code { background: rgba(177,42,48,0.1); }
+.error-detail-icon.time { background: var(--surface-container-high); }
+.error-detail-icon .material-symbols-outlined { font-size: 1rem; }
+.error-detail-icon.code .material-symbols-outlined { color: var(--tertiary); }
+.error-detail-icon.time .material-symbols-outlined { color: var(--on-surface-variant); }
+.error-detail-item label {
+  font-size: 0.75rem;
+  color: var(--outline);
+  display: block;
+  margin-bottom: 0.25rem;
+}
+.error-detail-item span { font-weight: 600; font-size: 0.875rem; }
+
+/* Bottom Nav */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 0.75rem 1rem 2rem;
+  background: rgba(255,255,255,0.9);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(226,232,240,0.5);
+  border-radius: 1.5rem 1.5rem 0 0;
+  box-shadow: 0 -4px 24px rgba(25,28,29,0.06);
+}
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.5rem 1.25rem;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #94a3b8;
+}
+.nav-item:hover { color: var(--primary); }
+.nav-item.active {
+  background: rgba(40,199,111,0.1);
+  color: var(--primary);
+  transform: scale(1.05);
+}
+.nav-item .material-symbols-outlined { font-size: 1.5rem; margin-bottom: 0.25rem; }
+.nav-item span { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.02em; }
+
+/* History Page */
+.history-list { display: flex; flex-direction: column; gap: 1rem; }
+.history-item {
+  background: var(--surface-container-lowest);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.history-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+}
+.history-item.success::before { background: var(--primary); }
+.history-item.error::before { background: var(--tertiary); }
+.history-item-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.history-item h4 {
+  font-family: 'Manrope', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  word-break: break-all;
+}
+.history-item p { font-size: 0.875rem; color: var(--on-surface-variant); margin-top: 0.25rem; }
+.history-badge {
+  padding: 0.375rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.history-badge.success { background: rgba(0,109,56,0.1); color: var(--primary); }
+.history-badge.error { background: rgba(177,42,48,0.1); color: var(--tertiary); }
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--on-surface-variant);
+}
+.empty-state .material-symbols-outlined { font-size: 3rem; color: var(--outline-variant); margin-bottom: 1rem; }
+.empty-state p { font-size: 0.875rem; }
+
+/* Toast */
+.toast {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(-100px);
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(20px);
+  padding: 1rem 1.5rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: transform 0.3s ease;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.error { border-left: 4px solid var(--tertiary); }
+.toast.success { border-left: 4px solid var(--primary); }
+.toast .material-symbols-outlined { font-size: 1.25rem; }
+.toast.error .material-symbols-outlined { color: var(--tertiary); }
+.toast.success .material-symbols-outlined { color: var(--primary); }
+.toast span { font-weight: 600; font-size: 0.875rem; }
+
+/* Glass effect */
+.glass {
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+</style>
 </head>
 <body>
-  <div id="app"></div>
+<!-- Toast -->
+<div id="toast" class="toast">
+  <span class="material-symbols-outlined">info</span>
+  <span id="toast-message"></span>
+</div>
+
+<!-- Page: Main -->
+<div id="page-main" class="page active">
+  <header class="header">
+    <div class="header-content">
+      <div class="header-title">
+        <span class="material-symbols-outlined">settings_remote</span>
+        <h1>设备管理</h1>
+      </div>
+      <div class="header-actions">
+        <span class="material-symbols-outlined" onclick="showToast('暂无新通知')">notifications</span>
+      </div>
+    </div>
+    <div class="header-divider"></div>
+  </header>
+  
+  <main class="main">
+    <section class="section">
+      <h3 class="section-title">已连接设备</h3>
+      <div id="device-list" class="device-list"></div>
+    </section>
+    
+    <section class="section">
+      <h3 class="section-title">应用安装</h3>
+      <div id="upload-zone" class="upload-zone" onclick="document.getElementById('file-input').click()">
+        <div class="upload-icon">
+          <span class="material-symbols-outlined">upload_file</span>
+          <div class="upload-plus">
+            <span class="material-symbols-outlined">add</span>
+          </div>
+        </div>
+        <h4>拖拽 APK 到此处</h4>
+        <p>支持拖拽或点击选择 APK 文件进行安装</p>
+        <button class="upload-btn" type="button" onclick="event.stopPropagation(); document.getElementById('file-input').click()">
+          <span class="material-symbols-outlined">folder_open</span>
+          选择文件
+        </button>
+        <input type="file" id="file-input" accept=".apk" style="display:none" onchange="handleFileSelect(this.files[0])">
+      </div>
+    </section>
+  </main>
+  
+  <nav class="bottom-nav">
+    <div class="nav-item active" onclick="showPage('main')">
+      <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+      <span>控制台</span>
+    </div>
+    <div class="nav-item" onclick="showPage('history')">
+      <span class="material-symbols-outlined">history</span>
+      <span>历史</span>
+    </div>
+    <div class="nav-item" onclick="showPage('devices')">
+      <span class="material-symbols-outlined">devices</span>
+      <span>设备</span>
+    </div>
+  </nav>
+</div>
+
+<!-- Page: Upload Progress -->
+<div id="page-upload" class="page">
+  <header class="header">
+    <div class="header-content">
+      <div class="header-title">
+        <span class="material-symbols-outlined">settings_remote</span>
+        <h1>设备管理</h1>
+      </div>
+    </div>
+    <div class="header-divider"></div>
+  </header>
+  
+  <main class="main">
+    <div id="progress-card" class="progress-card uploading">
+      <div class="progress-header">
+        <div class="progress-icon">
+          <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">cloud_upload</span>
+        </div>
+        <h2 id="progress-title">上传/安装进行中...</h2>
+        <p id="progress-subtitle">正在同步至设备，请勿断开电源</p>
+      </div>
+      
+      <div class="progress-bar-container">
+        <div class="progress-bar-labels">
+          <span id="progress-percent" class="progress-percent">正在处理：0%</span>
+          <span id="progress-time" class="progress-time">剩余：--</span>
+        </div>
+        <div class="progress-bar">
+          <div id="progress-fill" class="progress-fill"></div>
+        </div>
+      </div>
+      
+      <button id="cancel-btn" class="cancel-btn" onclick="cancelUpload()">
+        <span class="material-symbols-outlined">close</span>
+        取消上传
+      </button>
+    </div>
+    
+    <div class="bento-grid">
+      <div class="bento-item speed">
+        <label>传输速率</label>
+        <p id="upload-speed">0 MB/s</p>
+      </div>
+      <div class="bento-item size">
+        <label>文件大小</label>
+        <p id="upload-size">0 MB</p>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Page: Success -->
+<div id="page-success" class="page">
+  <header class="header">
+    <div class="header-content">
+      <div class="header-title">
+        <span class="material-symbols-outlined">settings_remote</span>
+        <h1>设备管理</h1>
+      </div>
+      <div class="header-actions">
+        <span class="material-symbols-outlined" onclick="showToast('暂无新通知')">notifications</span>
+      </div>
+    </div>
+    <div class="header-divider"></div>
+  </header>
+  
+  <main class="main">
+    <div style="text-align: center; margin-top: 2rem;">
+      <div class="success-circle">
+        <svg viewBox="0 0 164 164">
+          <circle class="bg" cx="82" cy="82" r="80"/>
+          <circle id="success-progress" class="progress" cx="82" cy="82" r="80"/>
+        </svg>
+        <div class="success-icon">
+          <div class="success-icon-inner">
+            <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="status-badge">
+        <span class="dot pulse"></span>
+        <span>System Ready</span>
+      </div>
+    </div>
+    
+    <div style="text-align: center; margin: 2rem 0;">
+      <h2 style="font-family: 'Manrope', sans-serif; font-weight: 800; font-size: 1.75rem;">上传/安装成功</h2>
+      <p style="color: var(--on-surface-variant); margin-top: 0.75rem; line-height: 1.6; padding: 0 1rem;">
+        固件包已成功同步至终端设备。系统正在进行最后的自检，设备将在 30 秒内自动重启并生效。
+      </p>
+    </div>
+    
+    <div class="info-card">
+      <div class="info-item">
+        <label>软件版本</label>
+        <p id="success-version">v2.4.8-stable</p>
+      </div>
+      <div class="info-item">
+        <label>校验状态</label>
+        <p><span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">verified</span> 已通过</p>
+      </div>
+    </div>
+    
+    <button class="action-btn" onclick="showPage('main'); resetState();">
+      <span class="material-symbols-outlined">arrow_back</span>
+      返回控制台
+    </button>
+    <button class="secondary-btn" onclick="showPage('history')">
+      查看安装日志
+    </button>
+  </main>
+</div>
+
+<!-- Page: Error -->
+<div id="page-error" class="page">
+  <header class="header" style="padding: 1rem 1.5rem;">
+    <div class="header-content" style="padding: 0;">
+      <div class="header-title">
+        <span class="material-symbols-outlined" style="color: var(--tertiary)">error</span>
+        <h1 style="color: var(--on-surface)">提交失败</h1>
+      </div>
+      <span class="material-symbols-outlined" style="color: var(--outline-variant); cursor: pointer;" onclick="showPage('main'); resetState();">close</span>
+    </div>
+  </header>
+  
+  <main class="main">
+    <div class="error-card" style="margin-top: 2rem;">
+      <div class="error-header">
+        <div class="error-icon">
+          <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">wifi_off</span>
+        </div>
+        <h2 id="error-title">网络连接已中断</h2>
+        <p id="error-message">由于无法与服务器建立安全连接，您的设备数据上传未能完成。请检查您的网络设置后重试。</p>
+      </div>
+      
+      <div class="error-details glass">
+        <div class="error-detail-item">
+          <div class="error-detail-icon code">
+            <span class="material-symbols-outlined">code</span>
+          </div>
+          <div>
+            <label>错误代码</label>
+            <span id="error-code">ERR_CONNECTION_REFUSED</span>
+          </div>
+        </div>
+        <div class="error-detail-item">
+          <div class="error-detail-icon time">
+            <span class="material-symbols-outlined">schedule</span>
+          </div>
+          <div>
+            <label>最后尝试时间</label>
+            <span id="error-time">--</span>
+          </div>
+        </div>
+      </div>
+      
+      <div style="margin-top: 2rem; display: flex; flex-direction: column; gap: 0.75rem;">
+        <button class="action-btn" onclick="retryUpload()">
+          <span class="material-symbols-outlined">refresh</span>
+          返回重传
+        </button>
+        <button class="cancel-btn" onclick="showPage('main'); resetState();">
+          关闭界面
+        </button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Page: History -->
+<div id="page-history" class="page">
+  <header class="header">
+    <div class="header-content">
+      <div class="header-title">
+        <span class="material-symbols-outlined">settings_remote</span>
+        <h1>历史记录</h1>
+      </div>
+    </div>
+    <div class="header-divider"></div>
+  </header>
+  
+  <main class="main">
+    <div id="history-list" class="history-list"></div>
+  </main>
+  
+  <nav class="bottom-nav">
+    <div class="nav-item" onclick="showPage('main')">
+      <span class="material-symbols-outlined">dashboard</span>
+      <span>控制台</span>
+    </div>
+    <div class="nav-item active" onclick="showPage('history')">
+      <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">history</span>
+      <span>历史</span>
+    </div>
+    <div class="nav-item" onclick="showPage('devices')">
+      <span class="material-symbols-outlined">devices</span>
+      <span>设备</span>
+    </div>
+  </nav>
+</div>
+
+<!-- Page: Devices -->
+<div id="page-devices" class="page">
+  <header class="header">
+    <div class="header-content">
+      <div class="header-title">
+        <span class="material-symbols-outlined">settings_remote</span>
+        <h1>设备列表</h1>
+      </div>
+    </div>
+    <div class="header-divider"></div>
+  </header>
+  
+  <main class="main">
+    <div id="devices-list-page" class="device-list" style="display: flex; flex-direction: column; gap: 1rem;"></div>
+  </main>
+  
+  <nav class="bottom-nav">
+    <div class="nav-item" onclick="showPage('main')">
+      <span class="material-symbols-outlined">dashboard</span>
+      <span>控制台</span>
+    </div>
+    <div class="nav-item" onclick="showPage('history')">
+      <span class="material-symbols-outlined">history</span>
+      <span>历史</span>
+    </div>
+    <div class="nav-item active" onclick="showPage('devices')">
+      <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">devices</span>
+      <span>设备</span>
+    </div>
+  </nav>
+</div>
+
+<script>
+const API_BASE = '';
+
+// State
+let devices = [];
+let selectedDevice = null;
+let selectedFile = null;
+let currentInstallId = null;
+let progressInterval = null;
+let uploadStartTime = null;
+let historyRecords = JSON.parse(localStorage.getItem('installHistory') || '[]');
+
+// Show Toast
+function showToast(message, type = 'info') {
+  const toast = document.getElementById('toast');
+  const toastMsg = document.getElementById('toast-message');
+  toast.className = 'toast ' + type;
+  toastMsg.textContent = message;
+  
+  const icon = toast.querySelector('.material-symbols-outlined');
+  icon.textContent = type === 'error' ? 'error' : type === 'success' ? 'check_circle' : 'info';
+  
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+// Show Page
+function showPage(pageId) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + pageId).classList.add('active');
+  
+  if (pageId === 'history') renderHistory();
+  if (pageId === 'devices') renderDevicesPage();
+}
+
+// Fetch Devices
+async function fetchDevices() {
+  try {
+    const res = await fetch(API_BASE + '/devices');
+    const data = await res.json();
+    devices = data.devices || [];
+    renderDeviceList();
+  } catch (e) {
+    console.error('Failed to fetch devices:', e);
+    showToast('获取设备列表失败', 'error');
+  }
+}
+
+// Fetch Single Device Status
+async function fetchDeviceStatus() {
+  try {
+    const res = await fetch(API_BASE + '/device/status');
+    const data = await res.json();
+    return data;
+  } catch (e) {
+    console.error('Failed to fetch device status:', e);
+    return null;
+  }
+}
+
+// Render Device List
+function renderDeviceList() {
+  const container = document.getElementById('device-list');
+  if (!devices.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <span class="material-symbols-outlined">devices</span>
+        <p>暂未发现已连接的设备</p>
+      </div>
+    `;
+    return;
+  }
+  
+  container.innerHTML = devices.map(d => `
+    <div class="device-card ${d.connected ? 'connected' : 'disconnected'} ${selectedDevice && selectedDevice.serial === d.serial ? 'selected' : ''}" 
+         onclick="selectDevice('${d.serial}')">
+      <div class="device-info">
+        <div class="device-icon">
+          <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' ${d.connected ? 1 : 0}">phone_android</span>
+        </div>
+        <div class="device-details">
+          <h3>
+            ${d.model || d.name || 'Unknown Device'}
+            <span class="device-tag">${d.connected ? 'USB' : '离线'}</span>
+          </h3>
+          <p>${d.connected ? (d.abi || '已连接') : '请检查设备连接'}</p>
+        </div>
+      </div>
+      <div class="device-chevron">
+        <span class="material-symbols-outlined">chevron_right</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Render Devices Page
+function renderDevicesPage() {
+  const container = document.getElementById('devices-list-page');
+  if (!devices.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <span class="material-symbols-outlined">devices</span>
+        <p>暂未发现设备</p>
+      </div>
+    `;
+    return;
+  }
+  
+  container.innerHTML = devices.map(d => `
+    <div class="device-card ${d.connected ? 'connected' : 'disconnected'} ${selectedDevice && selectedDevice.serial === d.serial ? 'selected' : ''}"
+         onclick="selectDevice('${d.serial}')">
+      <div class="device-info">
+        <div class="device-icon">
+          <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' ${d.connected ? 1 : 0}">phone_android</span>
+        </div>
+        <div class="device-details">
+          <h3>
+            ${d.model || d.name || 'Unknown Device'}
+            <span class="device-tag">${d.connected ? 'USB' : '离线'}</span>
+          </h3>
+          <p>${d.connected ? (d.abi || '已连接') : '请检查设备连接'}</p>
+          <p style="font-size: 0.75rem; color: var(--outline); margin-top: 0.25rem;">${d.serial || ''}</p>
+        </div>
+      </div>
+      <div class="device-chevron">
+        <span class="material-symbols-outlined">${selectedDevice && selectedDevice.serial === d.serial ? 'check_circle' : 'chevron_right'}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Select Device
+function selectDevice(serial) {
+  const device = devices.find(d => d.serial === serial);
+  if (!device) return;
+  
+  if (!device.connected) {
+    showToast('请选择已连接的设备', 'error');
+    return;
+  }
+  
+  selectedDevice = device;
+  renderDeviceList();
+  renderDevicesPage();
+  showToast('已选择: ' + (device.model || device.name), 'success');
+}
+
+// Format File Size
+function formatFileSize(bytes) {
+  if (!bytes) return '0 B';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+// Format Time
+function formatTime(date) {
+  return date.toLocaleString('zh-CN');
+}
+
+// Handle File Select
+function handleFileSelect(file) {
+  if (!file) return;
+  
+  if (!file.name.endsWith('.apk')) {
+    showToast('仅支持 APK 文件', 'error');
+    return;
+  }
+  
+  if (!selectedDevice || !selectedDevice.connected) {
+    showToast('请先选择一个已连接的设备', 'error');
+    return;
+  }
+  
+  selectedFile = file;
+  startUpload();
+}
+
+// Handle Drag & Drop
+const uploadZone = document.getElementById('upload-zone');
+uploadZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  uploadZone.classList.add('dragover');
+});
+uploadZone.addEventListener('dragleave', () => {
+  uploadZone.classList.remove('dragover');
+});
+uploadZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  uploadZone.classList.remove('dragover');
+  handleFileSelect(e.dataTransfer.files[0]);
+});
+
+// Start Upload
+async function startUpload() {
+  if (!selectedFile) return;
+  
+  showPage('upload');
+  document.getElementById('progress-subtitle').textContent = '正在同步至 ' + (selectedDevice.model || '设备') + '，请勿断开电源';
+  document.getElementById('upload-size').textContent = formatFileSize(selectedFile.size);
+  
+  const formData = new FormData();
+  formData.append('file', selectedFile);
+  
+  try {
+    const res = await fetch(API_BASE + '/upload', {
+      method: 'POST',
+      body: formData,
+    });
+    
+    if (!res.ok) throw new Error('Upload failed');
+    
+    const data = await res.json();
+    currentInstallId = data.install_id;
+    uploadStartTime = Date.now();
+    
+    // Start install
+    await fetch(API_BASE + '/start-install', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        install_id: data.install_id,
+        apk_path: data.apk_path,
+      }),
+    });
+    
+    // Start polling progress
+    startProgressPolling();
+    
+  } catch (e) {
+    console.error('Upload error:', e);
+    showError('ERR_UPLOAD_FAILED', '文件上传失败，请重试');
+  }
+}
+
+// Start Progress Polling
+function startProgressPolling() {
+  if (progressInterval) clearInterval(progressInterval);
+  
+  progressInterval = setInterval(async () => {
+    try {
+      const res = await fetch(API_BASE + '/progress/' + currentInstallId);
+      const text = await res.text();
+      const lines = text.split('\n');
+      
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const parts = line.slice(6).split('|');
+          const message = parts[0];
+          const percentage = parseInt(parts[1]) || 0;
+          
+          updateProgress(message, percentage);
+          
+          if (percentage < 0) {
+            clearInterval(progressInterval);
+            showError('ERR_INSTALL_FAILED', message || '安装失败');
+            return;
+          }
+          
+          if (percentage >= 100) {
+            clearInterval(progressInterval);
+            addHistory(selectedFile.name, 'success');
+            showSuccess();
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Progress fetch error:', e);
+    }
+  }, 500);
+}
+
+// Update Progress
+function updateProgress(message, percentage) {
+  document.getElementById('progress-percent').textContent = '正在处理：' + percentage + '%';
+  
+  const elapsed = (Date.now() - uploadStartTime) / 1000;
+  const uploadedBytes = (percentage / 100) * (selectedFile?.size || 0);
+  const speed = uploadedBytes / elapsed / (1024 * 1024);
+  const remaining = (100 - percentage) / (percentage / elapsed);
+  
+  document.getElementById('upload-speed').textContent = speed.toFixed(1) + ' MB/s';
+  document.getElementById('progress-time').textContent = '剩余：' + Math.floor(remaining) + '秒';
+  document.getElementById('progress-fill').style.width = percentage + '%';
+  document.getElementById('progress-subtitle').textContent = message || '处理中...';
+}
+
+// Cancel Upload
+function cancelUpload() {
+  if (progressInterval) clearInterval(progressInterval);
+  currentInstallId = null;
+  selectedFile = null;
+  showPage('main');
+  showToast('已取消上传');
+}
+
+// Show Success
+function showSuccess() {
+  const progressCircle = document.getElementById('success-progress');
+  progressCircle.style.strokeDashoffset = '0';
+  document.getElementById('progress-card').className = 'progress-card success';
+  showPage('success');
+}
+
+// Show Error
+function showError(code, message) {
+  document.getElementById('error-code').textContent = code;
+  document.getElementById('error-title').textContent = message || '操作失败';
+  document.getElementById('error-time').textContent = formatTime(new Date());
+  document.getElementById('progress-card').className = 'progress-card error';
+  addHistory(selectedFile?.name || 'Unknown', 'error');
+  showPage('error');
+}
+
+// Retry Upload
+function retryUpload() {
+  showPage('main');
+  resetState();
+  if (selectedDevice) startUpload();
+}
+
+// Reset State
+function resetState() {
+  selectedFile = null;
+  currentInstallId = null;
+  if (progressInterval) clearInterval(progressInterval);
+  document.getElementById('progress-fill').style.width = '0%';
+  document.getElementById('progress-percent').textContent = '正在处理：0%';
+  document.getElementById('progress-time').textContent = '剩余：--';
+  document.getElementById('upload-speed').textContent = '0 MB/s';
+}
+
+// History
+function addHistory(filename, status) {
+  historyRecords.unshift({
+    filename: filename,
+    status: status,
+    size: selectedFile?.size ? formatFileSize(selectedFile.size) : '--',
+    time: new Date(),
+  });
+  historyRecords = historyRecords.slice(0, 50); // Keep last 50
+  localStorage.setItem('installHistory', JSON.stringify(historyRecords));
+}
+
+function renderHistory() {
+  const container = document.getElementById('history-list');
+  if (!historyRecords.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <span class="material-symbols-outlined">history</span>
+        <p>暂无历史记录</p>
+      </div>
+    `;
+    return;
+  }
+  
+  container.innerHTML = historyRecords.map(r => `
+    <div class="history-item ${r.status}">
+      <div class="history-item-header">
+        <div>
+          <h4>${r.filename}</h4>
+          <p>${r.size} - ${formatTime(r.time)}</p>
+        </div>
+        <span class="history-badge ${r.status}">${r.status === 'success' ? '成功' : '失败'}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Init
+async function init() {
+  await fetchDevices();
+  // Refresh device status every 10 seconds
+  setInterval(fetchDevices, 10000);
+}
+
+init();
+</script>
 </body>
 </html>

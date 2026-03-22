@@ -1,6 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import HTMLResponse, StreamingResponse
-from fastapi.staticfiles import StaticFiles
 import asyncio
 import subprocess
 import os
@@ -32,9 +31,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 _lock = threading.Lock()
-_device_cache = {"connected": False, "device_abi": None, "last_check": 0}
+_device_cache = {
+    "connected": False,
+    "device_abi": None,
+    "last_check": 0,
+    "device_model": None,
+    "device_name": None,
+}
 CACHE_TTL = 60
 _last_adb_restart = 0
+
+ADB_DEVICES = []
 
 _progress_data = {}
 
@@ -75,6 +82,95 @@ def reconnect_device():
         return False
 
 
+def get_device_info(device_serial):
+    try:
+        model_result = subprocess.run(
+            ["adb", "-s", device_serial, "shell", "getprop", "ro.product.model"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        model = (
+            model_result.stdout.strip() if model_result.returncode == 0 else "Unknown"
+        )
+
+        name_result = subprocess.run(
+            ["adb", "-s", device_serial, "shell", "getprop", "ro.product.name"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        name = name_result.stdout.strip() if name_result.returncode == 0 else "Unknown"
+
+        abi_result = subprocess.run(
+            ["adb", "-s", device_serial, "shell", "getprop", "ro.product.cpu.abi"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        abi = abi_result.stdout.strip() if abi_result.returncode == 0 else None
+
+        return {
+            "model": model,
+            "name": name,
+            "abi": abi,
+            "serial": device_serial,
+        }
+    except Exception as e:
+        logger.error(f"Failed to get device info: {e}")
+        return None
+
+
+def get_all_devices():
+    global ADB_DEVICES
+    try:
+        result = subprocess.run(
+            ["adb", "devices", "-l"], capture_output=True, text=True, timeout=10
+        )
+        lines = result.stdout.strip().split("\n")
+        devices = []
+
+        for line in lines[1:]:
+            if line.strip():
+                parts = line.split()
+                if len(parts) >= 2:
+                    serial = parts[0]
+                    state = parts[1]
+
+                    if state == "device":
+                        info = get_device_info(serial)
+                        if info:
+                            info["connected"] = True
+                            devices.append(info)
+                            ADB_DEVICES = devices
+                    elif state == "unauthorized":
+                        devices.append(
+                            {
+                                "serial": serial,
+                                "model": "Unauthorized",
+                                "name": "未授权",
+                                "connected": False,
+                                "abi": None,
+                            }
+                        )
+                    elif state == "offline":
+                        devices.append(
+                            {
+                                "serial": serial,
+                                "model": "Offline",
+                                "name": "离线",
+                                "connected": False,
+                                "abi": None,
+                            }
+                        )
+
+        logger.info(f"Found {len(devices)} devices")
+        return devices
+    except Exception as e:
+        logger.error(f"Failed to get devices: {e}")
+        return []
+
+
 def ensure_device_connected():
     global _device_cache
     current_time = time.time()
@@ -97,28 +193,19 @@ def ensure_device_connected():
             logger.info(f"Device state: {state}")
 
             if "device" in state:
-                abi_result = subprocess.run(
-                    [
-                        "adb",
-                        "-s",
-                        f"{DEVICE_IP}:5555",
-                        "shell",
-                        "getprop",
-                        "ro.product.cpu.abi",
-                    ],
-                    capture_output=True,
-                    text=True,
-                    timeout=10,
-                )
-                abi = abi_result.stdout.strip() if abi_result.returncode == 0 else None
+                device_info = get_device_info(f"{DEVICE_IP}:5555")
 
                 _device_cache = {
                     "connected": True,
-                    "device_abi": abi,
+                    "device_abi": device_info["abi"] if device_info else None,
+                    "device_model": device_info["model"] if device_info else None,
+                    "device_name": device_info["name"] if device_info else None,
                     "last_check": current_time,
                 }
-                logger.info(f"Device connected: True, ABI: {abi}")
-                return True, abi
+                logger.info(
+                    f"Device connected: True, ABI: {_device_cache['device_abi']}, Model: {_device_cache['device_model']}"
+                )
+                return True, _device_cache["device_abi"]
 
             elif not state or state == "" or "no devices" in state:
                 logger.warning(
@@ -136,32 +223,19 @@ def ensure_device_connected():
                 state = result.stdout.strip().lower()
 
                 if "device" in state:
-                    abi_result = subprocess.run(
-                        [
-                            "adb",
-                            "-s",
-                            f"{DEVICE_IP}:5555",
-                            "shell",
-                            "getprop",
-                            "ro.product.cpu.abi",
-                        ],
-                        capture_output=True,
-                        text=True,
-                        timeout=10,
-                    )
-                    abi = (
-                        abi_result.stdout.strip()
-                        if abi_result.returncode == 0
-                        else None
-                    )
+                    device_info = get_device_info(f"{DEVICE_IP}:5555")
 
                     _device_cache = {
                         "connected": True,
-                        "device_abi": abi,
+                        "device_abi": device_info["abi"] if device_info else None,
+                        "device_model": device_info["model"] if device_info else None,
+                        "device_name": device_info["name"] if device_info else None,
                         "last_check": current_time,
                     }
-                    logger.info(f"Device reconnected after fix: True, ABI: {abi}")
-                    return True, abi
+                    logger.info(
+                        f"Device reconnected after fix: True, ABI: {_device_cache['device_abi']}"
+                    )
+                    return True, _device_cache["device_abi"]
 
             elif "unauthorized" in state or "offline" in state:
                 logger.warning(f"Device {state}, attempting to reconnect...")
@@ -177,36 +251,25 @@ def ensure_device_connected():
                 state = result.stdout.strip().lower()
 
                 if "device" in state:
-                    abi_result = subprocess.run(
-                        [
-                            "adb",
-                            "-s",
-                            f"{DEVICE_IP}:5555",
-                            "shell",
-                            "getprop",
-                            "ro.product.cpu.abi",
-                        ],
-                        capture_output=True,
-                        text=True,
-                        timeout=10,
-                    )
-                    abi = (
-                        abi_result.stdout.strip()
-                        if abi_result.returncode == 0
-                        else None
-                    )
+                    device_info = get_device_info(f"{DEVICE_IP}:5555")
 
                     _device_cache = {
                         "connected": True,
-                        "device_abi": abi,
+                        "device_abi": device_info["abi"] if device_info else None,
+                        "device_model": device_info["model"] if device_info else None,
+                        "device_name": device_info["name"] if device_info else None,
                         "last_check": current_time,
                     }
-                    logger.info(f"Device reconnected after fix: True, ABI: {abi}")
-                    return True, abi
+                    logger.info(
+                        f"Device reconnected after fix: True, ABI: {_device_cache['device_abi']}"
+                    )
+                    return True, _device_cache["device_abi"]
 
             _device_cache = {
                 "connected": False,
                 "device_abi": None,
+                "device_model": None,
+                "device_name": None,
                 "last_check": current_time,
             }
             logger.info(f"Device not connected: {state}")
@@ -217,6 +280,8 @@ def ensure_device_connected():
             _device_cache = {
                 "connected": False,
                 "device_abi": None,
+                "device_model": None,
+                "device_name": None,
                 "last_check": current_time,
             }
             return False, None
@@ -408,9 +473,6 @@ async def root():
         return f.read()
 
 
-app.mount("/assets", StaticFiles(directory="/app/templates/assets"), name="assets")
-
-
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "apk-installer"}
@@ -424,7 +486,18 @@ async def device_status():
         "device_ip": DEVICE_IP,
         "connected": connected,
         "device_abi": abi,
+        "device_model": _device_cache.get("device_model"),
+        "device_name": _device_cache.get("device_name"),
         "service": "apk-installer",
+    }
+
+
+@app.get("/devices")
+async def list_devices():
+    devices = get_all_devices()
+    return {
+        "devices": devices,
+        "count": len(devices),
     }
 
 
